@@ -73,7 +73,7 @@ for_window [title="^ross-fisheye$"] fullscreen enable
 
 ## Build
 
-You need Rust, cmake, clang, pkg-config and the Wayland, xkbcommon, EGL and X11 development
+You need Rust, cmake, clang, pkg-config, GLFW 3.4 and the Wayland, xkbcommon, EGL and X11 development
 files. Then:
 
 ```sh

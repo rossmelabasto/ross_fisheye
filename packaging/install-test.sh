@@ -15,10 +15,11 @@ ross-fisheye --version | tee /tmp/version
 grep -qx "ross-fisheye $version" /tmp/version
 ross-fisheye --help | head -3
 
+ldd /usr/bin/ross-fisheye | grep -i glfw && { echo 'GLFW should be built in' >&2; exit 1; }
 if ldd /usr/bin/ross-fisheye | grep 'not found'; then
   echo "missing libraries" >&2; exit 1
 fi
-# What GLFW opens at run time.
+# GLFW is built in; these are what it opens at run time.
 for lib in libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1 libxkbcommon.so.0 libEGL.so.1; do
   ldconfig -p | grep -q "$lib" || { echo "missing $lib" >&2; exit 1; }
 done

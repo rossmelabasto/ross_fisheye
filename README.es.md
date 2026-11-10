@@ -75,7 +75,7 @@ for_window [title="^ross-fisheye$"] fullscreen enable
 
 ## Compilar
 
-Necesitas Rust, cmake, clang, pkg-config y los archivos de desarrollo de Wayland, xkbcommon, EGL
+Necesitas Rust, cmake, clang, pkg-config, GLFW 3.4 y los archivos de desarrollo de Wayland, xkbcommon, EGL
 y X11. Luego:
 
 ```sh

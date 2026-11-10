@@ -38,6 +38,20 @@ jobs:
           sudo apt-get install -y --no-install-recommends cmake clang libclang-dev pkg-config \
             libwayland-dev wayland-protocols libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+      - name: GLFW 3.4, built in statically
+        # raylib's Wayland build links the system GLFW and needs 3.4, which Ubuntu 22.04 doesn't
+        # have. A static GLFW makes the binary independent of each distribution's version.
+        run: |
+          curl -fsSL -o glfw.zip https://github.com/glfw/glfw/releases/download/3.4/glfw-3.4.zip
+          echo "b5ec004b2712fd08e8861dc271428f048775200a2df719ccf575143ba749a3e9  glfw.zip" | sha256sum -c -
+          unzip -q glfw.zip
+          cmake -S glfw-3.4 -B glfw-build -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=OFF \
+            -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build glfw-build -j"$(nproc)"
+          sudo cmake --install glfw-build --prefix /usr/local
+          # raylib-sys asks the linker for -lglfw; the static library is called libglfw3.a.
+          sudo ln -sf /usr/local/lib/libglfw3.a /usr/local/lib/libglfw.a
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install nfpm
