@@ -1,0 +1,102 @@
+name: Release
+
+# A tag like v0.1.0 builds ross-fisheye, packages it as deb, rpm and pacman, installs each package
+# on clean systems, then publishes a GitHub release and tells repo.rossmel.com to add it to the
+# signed repositories. Pushing to a release-test/ branch runs the same and publishes nothing.
+on:
+  push:
+    tags: ['v*']
+    branches: ['release-test/**']
+
+permissions:
+  contents: read
+
+env:
+  NFPM_VERSION: 2.48.0
+  NFPM_SHA256: 6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750
+
+jobs:
+  build:
+    # The oldest supported glibc (Ubuntu 22.04) so the binary runs everywhere newer.
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the version
+        id: version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ $GITHUB_REF == refs/tags/* && $GITHUB_REF_NAME != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version"
+            exit 1
+          fi
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake clang libclang-dev pkg-config \
+            libwayland-dev wayland-protocols libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install nfpm
+        run: |
+          curl -fsSL -o nfpm.tar.gz "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          echo "$NFPM_SHA256  nfpm.tar.gz" | sha256sum -c -
+          tar xzf nfpm.tar.gz nfpm && sudo install -m755 nfpm /usr/local/bin/nfpm
+      - name: Build the packages
+        run: bash packaging/build.sh "${{ steps.version.outputs.version }}" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/
+
+  install-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: 'archlinux:latest', kind: arch, pattern: '*.pkg.tar.zst' }
+          - { image: 'cachyos/cachyos:latest', kind: arch, pattern: '*.pkg.tar.zst' }
+          - { image: 'ubuntu:22.04', kind: deb, pattern: '*.deb' }
+          - { image: 'ubuntu:24.04', kind: deb, pattern: '*.deb' }
+          - { image: 'debian:13', kind: deb, pattern: '*.deb' }
+          - { image: 'fedora:latest', kind: rpm, pattern: '*.rpm' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist
+      - name: Install on ${{ matrix.image }}
+        run: |
+          pkg=$(ls dist/${{ matrix.pattern }})
+          docker run --rm -v "$PWD:/src" -w /src "${{ matrix.image }}" \
+            bash packaging/install-test.sh "${{ matrix.kind }}" "$pkg" "${{ needs.build.outputs.version }}"
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, install-test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist
+      - name: Create the GitHub release
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## \\[?"v"[] ]|^## "v"$" {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "ross_fisheye $VERSION" --notes-file notes.md dist/*
+      - name: Publish on repo.rossmel.com
+        env:
+          HUB_DEPLOY_KEY: ${{ secrets.HUB_DEPLOY_KEY }}
+        run: bash packaging/notify-hub.sh ross-fisheye "$VERSION"

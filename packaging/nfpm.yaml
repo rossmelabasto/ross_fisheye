@@ -1,0 +1,43 @@
+# Packages for repo.rossmel.com, built by packaging/build.sh (VERSION and PKG_NAME come from it).
+name: ${PKG_NAME}
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: 1
+section: graphics
+priority: optional
+maintainer: Rossmel Abasto <packages@rossmel.com>
+vendor: Rossmel Abasto
+homepage: https://repo.rossmel.com/fisheye/
+license: MIT
+description: |-
+  A fisheye magnifier for Wayland, based on woomer.
+  The screen freezes under a lens that bulges it like cloth pushed up by a glass ball.
+  Needs a compositor with wlr-screencopy, like niri, Hyprland or Sway.
+
+contents:
+  - src: target/release/ross-fisheye
+    dst: /usr/bin/ross-fisheye
+    file_info: { mode: 0755 }
+  - src: LICENSE
+    dst: /usr/share/licenses/ross-fisheye/LICENSE
+  - src: README.md
+    dst: /usr/share/doc/ross-fisheye/README.md
+
+# GLFW opens the Wayland, xkbcommon and EGL libraries at run time, so they're listed even if
+# ldd doesn't show them.
+overrides:
+  deb:
+    depends: [libwayland-client0, libwayland-cursor0, libwayland-egl1, libxkbcommon0, libegl1, libgl1]
+  rpm:
+    depends: [libwayland-client, libwayland-cursor, libwayland-egl, libxkbcommon, libglvnd-egl, libglvnd-opengl]
+  archlinux:
+    depends: [wayland, libxkbcommon, libglvnd]
+    provides: [ross-fisheye]
+    conflicts: [ross-fisheye]
+
+deb:
+  compression: zstd
+rpm:
+  compression: zstd
+  summary: A fisheye magnifier for Wayland
