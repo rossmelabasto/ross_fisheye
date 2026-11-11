@@ -35,6 +35,15 @@ swaymsg -t get_outputs | head -5
 # "cursor set" only warps; "cursor move" sends real pointer motion, which the lens follows.
 cx=0 cy=0
 cursor() { swaymsg -q "seat seat0 cursor set $1 $2"; cx=$1 cy=$2; }
+path() {
+  local x0=$1 y0=$2 x1=$3 y1=$4 steps=$5 i nx ny
+  for ((i = 1; i <= steps; i++)); do
+    nx=$((x0 + (x1 - x0) * i / steps)) ny=$((y0 + (y1 - y0) * i / steps))
+    swaymsg -q "seat seat0 cursor move $((nx - cx)) $((ny - cy))"
+    cx=$nx cy=$ny
+    sleep 0.04
+  done
+}
 
 cursor 420 300
 grim "$out/background.png"
@@ -49,15 +58,6 @@ wf-recorder -y -f "$out/raw.mp4" -c libx264 -p crf=20 -r 30 >"$out/recorder.log"
 rec=$!
 sleep 1
 # A slow loop over the page: left to right across the top, then down and back.
-path() {
-  local x0=$1 y0=$2 x1=$3 y1=$4 steps=$5 i nx ny
-  for ((i = 1; i <= steps; i++)); do
-    nx=$((x0 + (x1 - x0) * i / steps)) ny=$((y0 + (y1 - y0) * i / steps))
-    swaymsg -q "seat seat0 cursor move $((nx - cx)) $((ny - cy))"
-    cx=$nx cy=$ny
-    sleep 0.04
-  done
-}
 path 420 300 860 260 60
 path 860 260 980 480 50
 grim "$out/still-2.png"
