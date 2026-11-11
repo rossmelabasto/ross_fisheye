@@ -32,13 +32,17 @@ done
 export SWAYSOCK=$sock WAYLAND_DISPLAY=wayland-1
 swaymsg -t get_outputs | head -5
 
-cursor() { swaymsg -q "seat seat0 cursor set $1 $2"; }
+# "cursor set" only warps; "cursor move" sends real pointer motion, which the lens follows.
+cx=0 cy=0
+cursor() { swaymsg -q "seat seat0 cursor set $1 $2"; cx=$1 cy=$2; }
 
 cursor 420 300
 grim "$out/background.png"
 ross-fisheye >"$out/fisheye.log" 2>&1 &
 lens=$!
 sleep 4
+path 420 300 430 305 2
+sleep 0.5
 grim "$out/still-1.png"
 
 wf-recorder -y -f "$out/raw.mp4" -c libx264 -p crf=20 -r 30 >"$out/recorder.log" 2>&1 &
@@ -46,9 +50,11 @@ rec=$!
 sleep 1
 # A slow loop over the page: left to right across the top, then down and back.
 path() {
-  local x0=$1 y0=$2 x1=$3 y1=$4 steps=$5 i
-  for ((i = 0; i <= steps; i++)); do
-    cursor $((x0 + (x1 - x0) * i / steps)) $((y0 + (y1 - y0) * i / steps))
+  local x0=$1 y0=$2 x1=$3 y1=$4 steps=$5 i nx ny
+  for ((i = 1; i <= steps; i++)); do
+    nx=$((x0 + (x1 - x0) * i / steps)) ny=$((y0 + (y1 - y0) * i / steps))
+    swaymsg -q "seat seat0 cursor move $((nx - cx)) $((ny - cy))"
+    cx=$nx cy=$ny
     sleep 0.04
   done
 }
