@@ -51,7 +51,13 @@ cursor 420 300
 grim "$out/background.png"
 ross-fisheye >"$out/fisheye.log" 2>&1 &
 lens=$!
-sleep 4
+# With software rendering the lens takes a while to show up: wait for its window.
+for _ in $(seq 1 120); do
+  swaymsg -t get_tree | grep -q '"name": "ross-fisheye"' && break
+  sleep 0.5
+done
+swaymsg -t get_tree | grep -q '"name": "ross-fisheye"' || { echo "the lens never opened" >&2; cat "$out/fisheye.log" >&2; exit 1; }
+sleep 3
 path 420 300 430 305 2
 sleep 0.5
 grim "$out/still-1.png"
