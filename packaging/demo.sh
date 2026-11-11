@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Record the demo of ross-fisheye without anyone's desktop: a headless Sway shows a picture
+# Screenshots of ross-fisheye without anyone's desktop: a headless Sway shows a picture
 # (the background), the lens opens on it and the cursor is moved by swaymsg along a path while
 # wf-recorder records. Software rendering, so it runs on a CI machine with no GPU.
 #   packaging/demo.sh <background.png> <out-dir>      (ross-fisheye installed; needs sway, grim,
@@ -49,39 +49,24 @@ path() {
 wlrctl pointer move 1 1
 cursor 420 300
 grim "$out/background.png"
-ross-fisheye >"$out/fisheye.log" 2>&1 &
-lens=$!
-# With software rendering the lens takes a while to show up: wait for its window.
-for _ in $(seq 1 120); do
-  swaymsg -t get_tree | grep -q '"name": "ross-fisheye"' && break
-  sleep 0.5
-done
-swaymsg -t get_tree | grep -q '"name": "ross-fisheye"' || { echo "the lens never opened" >&2; cat "$out/fisheye.log" >&2; exit 1; }
-sleep 3
-path 420 300 430 305 2
-sleep 0.5
-grim "$out/still-1.png"
-
-wf-recorder -y -f "$out/raw.mp4" -c libx264 -p crf=20 -r 30 >"$out/recorder.log" 2>&1 &
-rec=$!
-sleep 1
-# A slow loop over the page: left to right across the top, then down and back.
-path 420 300 860 260 60
-path 860 260 980 480 50
-grim "$out/still-2.png"
-path 980 480 520 520 70
-path 520 520 420 300 50
-sleep 0.5
-kill -INT $rec
-wait $rec || true
-grim "$out/still-3.png"
-
-# Run again: the open lens closes (the same shortcut toggles it).
-ross-fisheye
-sleep 1
-if kill -0 $lens 2>/dev/null; then echo "the lens didn't close on the second launch" >&2; exit 1; fi
-
-ffmpeg -loglevel error -y -i "$out/raw.mp4" -vf "scale=1280:-2,format=yuv420p" -c:v libx264 -crf 24 -preset slow -movflags +faststart -an "$out/fisheye.mp4"
-ffmpeg -loglevel error -y -i "$out/raw.mp4" -vf "scale=1280:-2" -c:v libvpx-vp9 -crf 38 -b:v 0 -an "$out/fisheye.webm"
-rm -f "$out/raw.mp4"
+# One still per spot: WOOMER_TEST_CURSOR pins the lens there (pointer motion doesn't reach
+# windows on a headless Sway).
+shot() {
+  local name=$1 at=$2
+  WOOMER_TEST_CURSOR="$at" ross-fisheye >>"$out/fisheye.log" 2>&1 &
+  local lens=$!
+  for _ in $(seq 1 120); do
+    swaymsg -t get_tree | grep -q '"name": "ross-fisheye"' && break
+    sleep 0.5
+  done
+  sleep 3
+  grim "$out/$name.png"
+  # Running it again closes the open lens (one shortcut toggles it).
+  ross-fisheye
+  sleep 2
+  if kill -0 $lens 2>/dev/null; then echo "the lens didn't close on the second launch" >&2; exit 1; fi
+}
+shot fisheye-1 "300,170"
+shot fisheye-2 "760,420"
+shot fisheye-3 "1000,250"
 ls -la "$out"
