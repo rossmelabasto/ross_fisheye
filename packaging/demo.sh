@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Screenshots of ross-fisheye without anyone's desktop: a headless Sway shows a picture
-# (the background), the lens opens on it and the cursor is moved by swaymsg along a path while
-# wf-recorder records. Software rendering, so it runs on a CI machine with no GPU.
+# Screenshots of ross-fisheye without anyone's desktop: a headless Sway shows a picture (the
+# background) and the lens opens on it at a few spots. Software rendering, so it runs on a CI
+# machine with no GPU.
 #   packaging/demo.sh <background.png> <out-dir>      (ross-fisheye installed; needs sway, grim,
-#                                                      wf-recorder, wlrctl, ffmpeg, Mesa)
+#                                                      Mesa)
 set -euo pipefail
 bg=$(realpath "$1")
 out=$(realpath -m "$2")
