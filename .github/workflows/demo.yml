@@ -1,0 +1,39 @@
+name: Demo
+
+# Records the screenshots and the video of the lens for the website, on a headless Sway with
+# software rendering, over a picture of a web page. Run it by hand; the result is an artifact.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sway swaybg grim wf-recorder ffmpeg \
+            libgl1-mesa-dri libegl-mesa0 xwayland
+      - name: Install the newest release
+        run: |
+          tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          gh release download "$tag" --pattern '*.deb' --dir pkg
+          sudo apt-get install -y ./pkg/*.deb
+          ross-fisheye --version
+      - name: A page to magnify
+        run: |
+          google-chrome --headless=new --hide-scrollbars --window-size=1280,720 \
+            --screenshot="$PWD/background.png" https://repo.rossmel.com/ross-visualizer/
+      - name: Record
+        run: bash packaging/demo.sh background.png demo
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: demo
+          path: demo/
