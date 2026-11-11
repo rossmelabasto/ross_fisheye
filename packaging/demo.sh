@@ -3,7 +3,7 @@
 # (the background), the lens opens on it and the cursor is moved by swaymsg along a path while
 # wf-recorder records. Software rendering, so it runs on a CI machine with no GPU.
 #   packaging/demo.sh <background.png> <out-dir>      (ross-fisheye installed; needs sway, grim,
-#                                                      wf-recorder, ffmpeg, Mesa)
+#                                                      wf-recorder, wlrctl, ffmpeg, Mesa)
 set -euo pipefail
 bg=$(realpath "$1")
 out=$(realpath -m "$2")
@@ -32,19 +32,21 @@ done
 export SWAYSOCK=$sock WAYLAND_DISPLAY=wayland-1
 swaymsg -t get_outputs | head -5
 
-# "cursor set" only warps; "cursor move" sends real pointer motion, which the lens follows.
+# Headless Sway has no mouse, so windows never get pointer events. wlrctl adds a virtual one
+# (wlr-virtual-pointer) and moves it with real motion; "cursor set" only places it.
 cx=0 cy=0
 cursor() { swaymsg -q "seat seat0 cursor set $1 $2"; cx=$1 cy=$2; }
 path() {
   local x0=$1 y0=$2 x1=$3 y1=$4 steps=$5 i nx ny
   for ((i = 1; i <= steps; i++)); do
     nx=$((x0 + (x1 - x0) * i / steps)) ny=$((y0 + (y1 - y0) * i / steps))
-    swaymsg -q "seat seat0 cursor move $((nx - cx)) $((ny - cy))"
+    wlrctl pointer move $((nx - cx)) $((ny - cy))
     cx=$nx cy=$ny
     sleep 0.04
   done
 }
 
+wlrctl pointer move 1 1
 cursor 420 300
 grim "$out/background.png"
 ross-fisheye >"$out/fisheye.log" 2>&1 &
